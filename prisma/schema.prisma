@@ -1,0 +1,193 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  MERCHANT
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FLAT
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Merchant Merchant?
+  Customer Customer?
+  Admin    Admin?
+}
+
+model Merchant {
+  id              String    @id @default(cuid())
+  user            User      @relation(fields: [userId], references: [id])
+  userId          String    @unique
+  products        Product[] @relation("MerchantProducts")
+  // Additional fields for business registration and KYC
+  bio             String?
+  image           Bytes?
+  country         String
+  address         String
+  businessAddress String
+  businessCred    String
+  approved        Boolean   @default(false) // Account approval by admin
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Customer {
+  id         String     @id @default(cuid())
+  user       User       @relation(fields: [userId], references: [id])
+  userId     String     @unique
+  address    String
+  image      String?
+  firstName  String
+  lastName   String
+  bio        String
+  dob        String
+  orders     Order[]
+  wishlist   Wishlist[]
+  isDeleted  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  modifiedAt DateTime   @updatedAt
+}
+
+model Wishlist {
+  id         String   @id @default(cuid())
+  customer   Customer @relation(fields: [customerId], references: [id])
+  customerId String
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  modifiedAt DateTime @updatedAt
+}
+
+model Admin {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @unique
+}
+
+model Product {
+  id            String        @id @default(cuid())
+  uid           BigInt        @unique // Unique identifier for the product
+  merchant      Merchant      @relation(fields: [merchantId], references: [id], name: "MerchantProducts")
+  merchantId    String
+  category      Category      @relation(fields: [categoryId], references: [id])
+  categoryId    Int
+  brand         Brand         @relation(fields: [brandId], references: [id])
+  brandId       String
+  quantity      Int
+  unit          Int
+  image         String?
+  discountValue Decimal? // Nullable discount value
+  discountType  DiscountType? // Nullable discount type
+  stock         Int
+  color         String?
+  price         Decimal
+  name          String
+  location      String?
+  description   String?
+  tags          Int?
+  createdAt     DateTime      @default(now())
+  modifiedAt    DateTime      @updatedAt
+  isDeleted     Boolean       @default(false)
+  OrderItem     OrderItem[]
+  Review        Review?
+  wishlist      Wishlist[] // New relationship with Wishlist
+}
+
+model Category {
+  id         Int       @id @default(autoincrement())
+  name       String
+  products   Product[]
+  isDeleted  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  modifiedAt DateTime  @updatedAt
+}
+
+model Review {
+  id        String  @id @default(cuid())
+  content   String
+  rating    Int
+  product   Product @relation(fields: [productId], references: [id])
+  productId String  @unique
+  isDeleted Boolean @default(false)
+}
+
+model Brand {
+  id         String    @id @default(cuid())
+  name       String
+  products   Product[]
+  isDeleted  Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  modifiedAt DateTime  @updatedAt
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  customer    Customer    @relation(fields: [customerId], references: [id])
+  customerId  String
+  products    OrderItem[]
+  totalAmount Float
+  status      OrderStatus @default(PENDING)
+  paymentId   String?
+  Payment     Payment?    @relation(fields: [paymentId], references: [id])
+  isDeleted   Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  modifiedAt  DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String   @id @default(cuid())
+  order      Order    @relation(fields: [orderId], references: [id])
+  orderId    String
+  product    Product  @relation(fields: [productId], references: [id])
+  productId  String
+  quantity   Int
+  price      Float
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  modifiedAt DateTime @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  paymentDate   DateTime      @default(now())
+  amount        Float
+  status        PaymentStatus
+  transactionId String        @unique
+  paymentMethod String // E.g., 'credit_card', 'paypal'
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  Order         Order[]
+  isDeleted     Boolean       @default(false)
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
